@@ -1,0 +1,43 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import connectDB from './config/db.js';
+import dns from 'dns';
+import authRoutes from './routes/authRoutes.js';
+
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+// load env vars
+dotenv.config();
+
+// connect to database
+connectDB();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// middleware
+app.use(helmet());
+app.use(morgan('dev'));
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// routes
+app.use('/api/auth', authRoutes);
+
+app.get('/', (req, res) => {
+  res.json({ message: 'Smart Job Portal API is running' });
+});
+
+// start server
+app.listen(PORT, () => {
+  console.log(`Server is running on http:localhost:${PORT}`);
+});

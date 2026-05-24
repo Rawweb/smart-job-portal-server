@@ -4,6 +4,7 @@ import EmployerProfile from '../models/EmployerProfile.js';
 import cloudinary from '../config/cloudinary.js';
 import { parseResume } from '../utils/resumeParser.js';
 import { extractSkills } from '../utils/skillExtractor.js';
+import path from 'path';
 
 // Helper: Upload a buffer to Cloudinary
 const uploadToCloudinary = (buffer, options) => {
@@ -21,6 +22,13 @@ const uploadToCloudinary = (buffer, options) => {
 
     stream.end(buffer);
   });
+};
+
+const getResumeExtension = (originalname, mimetype) => {
+  const extension = path.extname(originalname || '').toLowerCase();
+  if (extension) return extension;
+  if (mimetype === 'application/pdf') return '.pdf';
+  return '.docx';
 };
 
 // @desc    Upload resume + extract skills
@@ -42,7 +50,10 @@ export const uploadResume = async (req, res) => {
     const uploadResult = await uploadToCloudinary(buffer, {
       resource_type: 'raw',
       folder: 'skillbridge/resumes',
-      public_id: `resume-${req.user._id}`,
+      public_id: `resume-${req.user._id}${getResumeExtension(
+        originalname,
+        mimetype
+      )}`,
       overwrite: true, // replace existing file with same public_id
     });
 

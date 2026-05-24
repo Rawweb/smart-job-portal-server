@@ -45,9 +45,8 @@ export const applyForJob = async (req, res) => {
         .json({ message: 'You have already applied for this job' });
     }
 
-    // Get the graduate's skills to calculate skill gap at time of application
-    // We save this snapshot so even if the graduate updates their skills later
-    // the employer always sees what they had when they applied
+    // Save the skill gap at the time of application as a historical fallback.
+    // Application list endpoints recompute this from the latest profile skills.
     const graduateProfile = await GraduateProfile.findOne({
       user: req.user._id,
     }).lean();
@@ -55,7 +54,7 @@ export const applyForJob = async (req, res) => {
     const graduateSkills = graduateProfile?.skills || [];
     const skillGap = calculateSkillGap(graduateSkills, job.requiredSkills);
 
-    // Create the application with the skill gap snapshot saved inside it
+    // Create the application with the initial skill gap snapshot saved inside it
     const application = await Application.create({
       job: jobId,
       applicant: req.user._id,
@@ -91,9 +90,17 @@ export const getMyApplications = async (req, res) => {
     const applications = await Application.find({
       applicant: req.user._id,
     })
-      .populate('job', 'title sector jobType location employer isActive')
+      .populate(
+        'job',
+        'title sector jobType location employer isActive requiredSkills'
+      )
       .lean()
       .sort({ createdAt: -1 });
+
+    const graduateProfile = await GraduateProfile.findOne({
+      user: req.user._id,
+    }).lean();
+    const graduateSkills = graduateProfile?.skills || [];
 
     // Now attach employer company name to each application
     // Collect all unique employer IDs from the populated jobs
@@ -114,12 +121,19 @@ export const getMyApplications = async (req, res) => {
       profileMap[p.user.toString()] = p;
     });
 
-    const enriched = applications.map((app) => ({
-      ...app,
-      companyName:
-        profileMap[app.job?.employer?.toString()]?.companyName ||
-        'Unknown Company',
-    }));
+    const enriched = applications.map((app) => {
+      const skillGap = app.job
+        ? calculateSkillGap(graduateSkills, app.job.requiredSkills)
+        : app.skillGapResult;
+
+      return {
+        ...app,
+        skillGapResult: skillGap,
+        companyName:
+          profileMap[app.job?.employer?.toString()]?.companyName ||
+          'Unknown Company',
+      };
+    });
 
     res.status(200).json({ applications: enriched });
   } catch (error) {
@@ -149,8 +163,7 @@ export const getJobApplicants = async (req, res) => {
     const applications = await Application.find({ job: req.params.jobId })
       .populate('applicant', 'email')
       .lean()
-      .sort({ 'skillGapResult.compatibilityScore': -1 });
-    // Sort by score descending so best matches are shown first
+      .sort({ createdAt: -1 });
 
     // Attach graduate profile info to each application
     const applicantIds = applications.map((a) => a.applicant._id);
@@ -164,10 +177,25 @@ export const getJobApplicants = async (req, res) => {
       gradMap[p.user.toString()] = p;
     });
 
-    const enriched = applications.map((app) => ({
-      ...app,
-      graduateProfile: gradMap[app.applicant._id.toString()] || {},
-    }));
+    const enriched = applications
+      .map((app) => {
+        const graduateProfile = gradMap[app.applicant._id.toString()] || {};
+        const skillGap = calculateSkillGap(
+          graduateProfile.skills || [],
+          job.requiredSkills
+        );
+
+        return {
+          ...app,
+          skillGapResult: skillGap,
+          graduateProfile,
+        };
+      })
+      .sort(
+        (a, b) =>
+          (b.skillGapResult?.compatibilityScore || 0) -
+          (a.skillGapResult?.compatibilityScore || 0)
+      );
 
     res.status(200).json({ applications: enriched, job });
   } catch (error) {

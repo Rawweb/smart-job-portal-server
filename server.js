@@ -1,16 +1,16 @@
+import dotenv from 'dotenv'; 
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import connectDB from './config/db.js';
 import dns from 'dns';
 import authRoutes from './routes/authRoutes.js';
+import onboardingRoutes from './routes/onboardingRoutes.js';
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
-
-// load env vars
-dotenv.config();
 
 // connect to database
 connectDB();
@@ -32,7 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // routes
 app.use('/api/auth', authRoutes);
-
+app.use('/api/onboarding', onboardingRoutes);
 app.get('/', (req, res) => {
   res.json({ message: 'Smart Job Portal API is running' });
 });

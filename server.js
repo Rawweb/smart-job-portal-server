@@ -22,12 +22,25 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigins = ['http://localhost:5173', process.env.CLIENT_URL].filter(
+  Boolean
+);
+
 // middleware
 app.use(helmet());
 app.use(morgan('dev'));
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // allow non-browser requests
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.error(`CORS blocked for origin: ${origin}`);
+        callback(new Error(`CORS policy: origin ${origin} not allowed`));
+      }
+    },
     credentials: true,
   })
 );

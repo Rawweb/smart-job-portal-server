@@ -9,6 +9,7 @@ import connectDB from './config/db.js';
 import dns from 'dns';
 import authRoutes from './routes/authRoutes.js';
 import onboardingRoutes from './routes/onboardingRoutes.js';
+import jobRoutes from './routes/jobRoutes.js';
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 
@@ -33,6 +34,9 @@ app.use(express.urlencoded({ extended: true }));
 // routes
 app.use('/api/auth', authRoutes);
 app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/jobs', jobRoutes);
+
+// test route
 app.get('/', (req, res) => {
   res.json({ message: 'Smart Job Portal API is running' });
 });
